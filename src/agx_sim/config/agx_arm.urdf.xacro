@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<!-- piper_x + 电动夹爪 + 夹爪上的 D435 + Gazebo ros2_control -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="agx_arm">
+
+  <xacro:include
+    filename="$(find agx_arm_description)/agx_arm_urdf/piper_x/urdf/piper_x_with_gripper_description.xacro"/>
+  <xacro:include filename="d435_mount.urdf.xacro"/>
+
+  <!-- 初始关节角 -->
+  <xacro:property name="q0" value="${dict(joint1=0.0, joint2=1.2, joint3=-1.2,
+                                           joint4=0.0, joint5=0.0, joint6=0.0,
+                                           gripper_joint1=0.02, gripper_joint2=-0.02)}"/>
+
+  <!-- 每个关节：位置指令 + 位置/速度状态 -->
+  <xacro:macro name="joint_iface" params="name">
+    <joint name="${name}">
+      <command_interface name="position"/>
+      <state_interface name="position">
+        <param name="initial_value">${q0[name]}</param>
+      </state_interface>
+      <state_interface name="velocity"/>
+    </joint>
+  </xacro:macro>
+
+  <ros2_control name="GazeboSystem" type="system">
+    <hardware>
+      <plugin>gazebo_ros2_control/GazeboSystem</plugin>
+    </hardware>
+    <xacro:joint_iface name="joint1"/>
+    <xacro:joint_iface name="joint2"/>
+    <xacro:joint_iface name="joint3"/>
+    <xacro:joint_iface name="joint4"/>
+    <xacro:joint_iface name="joint5"/>
+    <xacro:joint_iface name="joint6"/>
+    <xacro:joint_iface name="gripper_joint1"/>
+    <xacro:joint_iface name="gripper_joint2"/>
+  </ros2_control>
+
+  <gazebo>
+    <plugin name="gazebo_ros2_control" filename="libgazebo_ros2_control.so">
+      <parameters>$(find agx_sim)/config/ros2_controllers.yaml</parameters>
+    </plugin>
+  </gazebo>
+
+  <!-- 夹爪接触参数 -->
+  <gazebo reference="gripper_link1">
+    <mu1>1.0</mu1>
+    <mu2>1.0</mu2>
+    <kp>1000000.0</kp>
+    <kd>10.0</kd>
+  </gazebo>
+  <gazebo reference="gripper_link2">
+    <mu1>1.0</mu1>
+    <mu2>1.0</mu2>
+    <kp>1000000.0</kp>
+    <kd>10.0</kd>
+  </gazebo>
+</robot>

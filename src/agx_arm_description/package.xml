@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>agx_arm_description</name>
+  <version>0.1.0</version>
+  <description>piper_x 模型（精简版：只用 URDF + mesh，供仿真使用）</description>
+  <maintainer email="xu@xu-computer.local">xu</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

@@ -1,0 +1,93 @@
+<?xml version="1.0"?>
+<!-- 夹爪上的 RealSense D435：安装尺寸照抄松灵官方 piper_x_gripper_d435.urdf。
+     为了精简，相机本体用方块代替 mesh，并且不加碰撞体（不参与 MoveIt 碰撞检测）。 -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- 支架 -->
+  <link name="camera_stand_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.2"/>
+      <inertia ixx="0.0002" ixy="0" ixz="0" iyy="0.0002" iyz="0" izz="0.0001"/>
+    </inertial>
+    <visual>
+      <origin rpy="-1.57 0 1.57" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://agx_arm_description/meshes/realsense_mid_stand.dae"/>
+      </geometry>
+    </visual>
+  </link>
+
+  <joint name="camera_stand_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="-0.034 -0.001 0.022"/>
+    <parent link="gripper_base"/>
+    <child link="camera_stand_link"/>
+  </joint>
+
+  <!-- 相机本体：camera_link 的 +X 就是光轴 -->
+  <link name="d435_camera_link"/>
+  <joint name="d435_camera_joint" type="fixed">
+    <origin rpy="0 -1.22 0" xyz="-0.031 -0.028 0.0018"/>
+    <parent link="camera_stand_link"/>
+    <child link="d435_camera_link"/>
+  </joint>
+
+  <link name="camera_link">
+    <visual>
+      <origin xyz="0 -0.0175 0"/>
+      <geometry>
+        <box size="0.025 0.09 0.025"/>
+      </geometry>
+      <material name="dark_grey">
+        <color rgba="0.2 0.2 0.2 1"/>
+      </material>
+    </visual>
+    <inertial>
+      <mass value="0.072"/>
+      <inertia ixx="0.00388" ixy="0" ixz="0" iyy="0.0005" iyz="0" izz="0.00388"/>
+    </inertial>
+  </link>
+
+  <joint name="camera_link_joint" type="fixed">
+    <origin xyz="0.0106 0.0175 0.0125" rpy="0 0 0"/>
+    <parent link="d435_camera_link"/>
+    <child link="camera_link"/>
+  </joint>
+
+  <!-- REP-103 光学系：z 前、x 右、y 下 -->
+  <link name="camera_optical_frame"/>
+  <joint name="camera_optical_joint" type="fixed">
+    <origin xyz="0 0 0" rpy="-1.5707963 0 -1.5707963"/>
+    <parent link="camera_link"/>
+    <child link="camera_optical_frame"/>
+  </joint>
+
+  <!-- Gazebo 深度相机传感器 -->
+  <gazebo reference="camera_link">
+    <sensor name="d435" type="depth">
+      <always_on>1</always_on>
+      <update_rate>15</update_rate>
+      <visualize>false</visualize>
+      <camera>
+        <horizontal_fov>1.5184364</horizontal_fov>
+        <image>
+          <width>640</width>
+          <height>480</height>
+          <format>R8G8B8</format>
+        </image>
+        <clip>
+          <near>0.1</near>
+          <far>6.0</far>
+        </clip>
+      </camera>
+      <plugin name="d435_camera" filename="libgazebo_ros_camera.so">
+        <camera_name>camera</camera_name>
+        <!-- 内参是从这里算的，不写就用默认 1.2 rad，solvePnP 会解错尺度 -->
+        <horizontal_fov>1.5184364</horizontal_fov>
+        <frame_name>camera_optical_frame</frame_name>
+        <min_depth>0.1</min_depth>
+        <max_depth>6.0</max_depth>
+      </plugin>
+    </sensor>
+  </gazebo>
+</robot>
