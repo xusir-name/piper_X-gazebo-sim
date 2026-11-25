@@ -66,6 +66,7 @@ ros2 launch agx_sim sim.launch.py gui:=false      # 不要 Gazebo 界面（无�
 | `table_x` / `table_y` / `table_z` | `0.45` / `0.0` / `0.15` | 凸台中心坐标（m，原点在机械臂底座） |
 | `table_sx` / `table_sy` / `table_sz` | `0.6` / `0.6` / `0.3` | 凸台尺寸（m），台面高度 = `table_z + table_sz/2` |
 | `blocks` | `4` | 台面上放几个可抓取的小方块（边长 2.5~4.5 cm，非固定、带摩擦），`0`=不放 |
+| `kill_stale` | `true` | 启动前清掉上次没退干净的 `gzserver`/`gzclient`（只认本仿真的 world） |
 
 ```bash
 # 4x4 码、平放、换个凸台
@@ -159,6 +160,10 @@ ros2 topic echo /target_pose_status
   接触刚度 `kp=1e6`），夹爪闭合就能夹住拿走；它们的位置按凸台尺寸等比计算，跟着 `table_sx/sy` 走。
 - `/arm_tcp_state` 的 TCP 取在 `gripper_base` 沿 +Z 0.1358 m 处，正好是两个指尖 frame 的中点，
   姿态沿用 `gripper_base`；换夹爪或想改抓取点时用节点参数 `tcp_z` / `tcp_parent` 调。
+- 如果上次的 Gazebo 没退干净（比如 `kill -9` 或直接关终端），11345 端口会被占着，
+  新 `gzserver` 会静默退出、`spawn_entity` 报 "Entity already exists"，于是你看到的还是旧世界、
+  关节角也不会重置。`kill_stale:=true`（默认）会在启动前自动清理本仿真残留的进程；
+  设成 `false` 时若端口仍被占用会直接报错提示。
 - 初始关节角：`joint2=1.2, joint3=-1.2`，其余 0，夹爪 `±0.02`。
 - ArUco 码由白底板 + 黑格子拼成（不用贴图），每次 launch 按参数写入 `/tmp/agx_sim/sim.world`；
   白底板比码大 6 cm 以留出 quiet zone，且关闭投影避免自阴影影响检测。

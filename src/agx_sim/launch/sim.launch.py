@@ -12,6 +12,7 @@
     table_x/y/z   0.45/0.0/0.15  凸台中心坐标（m，world 系 = base_link 系）
     table_sx/sy/sz 0.6/0.6/0.3   凸台尺寸（m）
     blocks        4      台面上放几个可以被夹爪抓起来的小方块（0=不放）
+    kill_stale    true   启动前清掉上次没退干净的 gzserver/gzclient（否则端口被占，新仿真起不来）
 
 对外接口：
     /joint_states                        关节状态（仿真实时反馈）
@@ -23,6 +24,11 @@
 """
 
 from pathlib import Path
+
+import os
+import signal
+import socket
+import time
 
 import cv2
 import xacro
@@ -153,6 +159,46 @@ def _blocks_sdf(tx, ty, top, hx, hy, count):
     return "".join(out)
 
 
+GAZEBO_MASTER_PORT = 11345
+
+
+def _pids_matching(*needles):
+    """在 /proc 里找命令行同时包含所有关键字的进程。"""
+    pids = []
+    for entry in os.listdir("/proc"):
+        if not entry.isdigit():
+            continue
+        try:
+            with open(f"/proc/{entry}/cmdline", "rb") as fh:
+                cmd = fh.read().decode(errors="ignore").replace("\0", " ")
+        except OSError:
+            continue
+        if all(n in cmd for n in needles):
+            pids.append(int(entry))
+    return pids
+
+
+def _cleanup_stale(world_path):
+    """上次没退干净的 gazebo 会占着 11345 端口，导致新 gzserver 起不来、
+    看到的还是旧世界（关节角当然也不会重置）。这里只清本仿真的进程。"""
+    stale = _pids_matching("gzserver", world_path)
+    if not stale:
+        return []
+    for pid in stale + _pids_matching("gzclient"):
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except OSError:
+            pass
+    time.sleep(0.5)
+    return stale
+
+
+def _master_port_busy():
+    with socket.socket() as sock:
+        sock.settimeout(0.3)
+        return sock.connect_ex(("127.0.0.1", GAZEBO_MASTER_PORT)) == 0
+
+
 # ------------------------------------------------------------------ world
 def _world_sdf(ctx):
     """按参数生成 world：地面 + 凸台 + ArUco 码。"""
@@ -258,6 +304,17 @@ def _launch(context, *args, **kwargs):
         ).toxml(),
         "use_sim_time": True,
     }
+
+    # 先清上一次的残留，否则新 gzserver 会因端口占用而退出，仿真状态不会重置
+    if _flag(ctx["kill_stale"]):
+        stale = _cleanup_stale(str(world_path))
+        if stale:
+            print(f"[agx_sim] 已清掉上次残留的 gazebo 进程: {stale}")
+    if _master_port_busy():
+        raise RuntimeError(
+            f"Gazebo 主端口 {GAZEBO_MASTER_PORT} 已被占用（还有别的 gzserver 在跑）。\n"
+            "  先结束它：pkill -9 gzserver；或者换一个：kill_stale:=true"
+        )
 
     actions = [
         # 别去连 gazebosim 模型库，否则没网时 GUI 会卡住
@@ -368,6 +425,7 @@ ARGS = {
     "table_sy": LaunchConfiguration("table_sy"),
     "table_sz": LaunchConfiguration("table_sz"),
     "blocks": LaunchConfiguration("blocks"),
+    "kill_stale": LaunchConfiguration("kill_stale"),
 }
 
 
@@ -404,5 +462,7 @@ def generate_launch_description():
                               description="凸台高（m）"),
         DeclareLaunchArgument("blocks", default_value="4",
                               description="台面上小方块的个数（0=不放）"),
+        DeclareLaunchArgument("kill_stale", default_value="true",
+                              description="启动前清理上次没退干净的 gazebo 进程"),
     ]
     return LaunchDescription(declared + [OpaqueFunction(function=_launch)])
