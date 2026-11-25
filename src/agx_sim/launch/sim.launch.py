@@ -193,6 +193,13 @@ def _cleanup_stale(world_path):
     return stale
 
 
+def _camera_plugin_available():
+    """相机话题由 gazebo_plugins 的 libgazebo_ros_camera.so 提供。"""
+    dirs = os.environ.get("GAZEBO_PLUGIN_PATH", "").split(":")
+    dirs += [os.path.join(p, "lib") for p in os.environ.get("AMENT_PREFIX_PATH", "").split(":")]
+    return any(d and os.path.exists(os.path.join(d, "libgazebo_ros_camera.so")) for d in dirs)
+
+
 def _master_port_busy():
     with socket.socket() as sock:
         sock.settimeout(0.3)
@@ -315,6 +322,11 @@ def _launch(context, *args, **kwargs):
             f"Gazebo 主端口 {GAZEBO_MASTER_PORT} 已被占用（还有别的 gzserver 在跑）。\n"
             "  先结束它：pkill -9 gzserver；或者换一个：kill_stale:=true"
         )
+
+    # 缺相机插件时提前说清楚，免得以为没开 realsense 驱动
+    if not _camera_plugin_available():
+        print("[agx_sim] 警告: 找不到 libgazebo_ros_camera.so，/camera/* 话题不会发布。\n"
+              "          安装后重启即可：sudo apt install ros-humble-gazebo-plugins")
 
     actions = [
         # 别去连 gazebosim 模型库，否则没网时 GUI 会卡住
@@ -442,7 +454,7 @@ def generate_launch_description():
         DeclareLaunchArgument("aruco_id", default_value="0", description="ArUco id"),
         DeclareLaunchArgument("aruco_size", default_value="0.16",
                               description="ArUco 边长（m）"),
-        DeclareLaunchArgument("aruco_vertical", default_value="true",
+        DeclareLaunchArgument("aruco_vertical", default_value="false",
                               description="true=竖放，false=平放"),
         DeclareLaunchArgument("aruco_dx", default_value="0.0",
                               description="码相对凸台中心的 x 偏移（m）"),
@@ -452,15 +464,15 @@ def generate_launch_description():
                               description="凸台中心 x（m）"),
         DeclareLaunchArgument("table_y", default_value="0.0",
                               description="凸台中心 y（m）"),
-        DeclareLaunchArgument("table_z", default_value="0.15",
+        DeclareLaunchArgument("table_z", default_value="0.075",
                               description="凸台中心 z（m）"),
-        DeclareLaunchArgument("table_sx", default_value="0.6",
+        DeclareLaunchArgument("table_sx", default_value="0.3",
                               description="凸台长（m）"),
-        DeclareLaunchArgument("table_sy", default_value="0.6",
+        DeclareLaunchArgument("table_sy", default_value="0.3",
                               description="凸台宽（m）"),
-        DeclareLaunchArgument("table_sz", default_value="0.3",
+        DeclareLaunchArgument("table_sz", default_value="0.1",
                               description="凸台高（m）"),
-        DeclareLaunchArgument("blocks", default_value="4",
+        DeclareLaunchArgument("blocks", default_value="0",
                               description="台面上小方块的个数（0=不放）"),
         DeclareLaunchArgument("kill_stale", default_value="true",
                               description="启动前清理上次没退干净的 gazebo 进程"),

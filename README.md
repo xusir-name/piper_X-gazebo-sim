@@ -30,6 +30,10 @@ sudo apt install -y \
 sudo apt install -y ros-humble-moveit
 ```
 
+> 相机话题（`/camera/...`）由 `ros-humble-gazebo-plugins` 里的 `libgazebo_ros_camera.so`
+> 在 Gazebo 里直接渲染发布，**不需要另开终端跑 RealSense 驱动**（也没接真实相机）。
+> 缺这个包时 launch 会打印警告，`/camera/*` 话题不会出现。
+
 或者用 rosdep 一次装完：
 
 ```bash
@@ -170,3 +174,5 @@ ros2 topic echo /target_pose_status
 - 为了让包足够小：模型包只保留 piper_x；相机本体用方块代替 16 MB 的 `d435.dae`，并**不加碰撞体**
   （不参与 MoveIt 碰撞检测）。
 - 若外部节点使用仿真时间，记得设置 `use_sim_time:=true`。
+- 没有 `/camera/*` 话题 = 缺 `ros-humble-gazebo-plugins`（不是需要 RealSense 驱动），
+  装上重启即可；launch 启动时会给出对应警告。
