@@ -3,6 +3,7 @@
 参数（ros2 launch agx_sim sim.launch.py 参数:=值）：
     moveit        true    是否启动 MoveIt（开启后多出 /target_pose 话题）
     gui           true    是否启动 Gazebo 界面
+    rviz          true    是否启动 RViz（moveit 开关决定用哪套 rviz 配置）
     aruco_dict    DICT_6X6_250  ArUco 字典名（cv2.aruco 里的名字）
     aruco_id      0       ArUco id
     aruco_size    0.16    ArUco 边长（m）
@@ -33,6 +34,7 @@ from launch.actions import (
     OpaqueFunction,
     RegisterEventHandler,
     SetEnvironmentVariable,
+    TimerAction,
 )
 from launch.conditions import IfCondition
 from launch.event_handlers import OnProcessExit
@@ -245,8 +247,10 @@ def _launch(context, *args, **kwargs):
     ]
     actions.append(RegisterEventHandler(OnProcessExit(
         target_action=spawn_robot, on_exit=spawners)))
+    last_spawner = spawners[-1]
 
     # MoveIt：move_group + /target_pose 桥接节点（moveit:=false 时完全不加载）
+    moveit_params = None
     if _flag(ctx["moveit"]):
         from moveit_configs_utils import MoveItConfigsBuilder
 
@@ -254,19 +258,34 @@ def _launch(context, *args, **kwargs):
                .robot_description(file_path="config/agx_arm.urdf.xacro")
                .trajectory_execution(file_path="config/moveit_controllers.yaml")
                .to_moveit_configs())
+        moveit_params = cfg.to_dict()
         actions += [
             Node(package="moveit_ros_move_group", executable="move_group",
-                 output="log", parameters=[cfg.to_dict(), {"use_sim_time": True}]),
+                 output="log", parameters=[moveit_params, {"use_sim_time": True}]),
             Node(package="agx_sim", executable="target_pose_bridge", output="log",
                  parameters=[{"use_sim_time": True, "planning_group": "arm",
                               "ee_link": "link6"}]),
         ]
+
+    # RViz：开了 MoveIt 用带 MotionPlanning 面板的那套配置，否则用基础配置
+    if _flag(ctx["rviz"]):
+        rviz_config = "rviz_moveit.rviz" if moveit_params else "rviz_sim.rviz"
+        rviz_params = dict(moveit_params) if moveit_params else {}
+        rviz_params["use_sim_time"] = True
+        # 等控制器拉起后再起 RViz：RViz 启动时若还没有相机话题，图像显示不会订阅
+        rviz_node = Node(package="rviz2", executable="rviz2", output="log",
+                         arguments=["-d", str(share / "config" / rviz_config)],
+                         parameters=[rviz_params])
+        actions.append(RegisterEventHandler(OnProcessExit(
+            target_action=last_spawner,
+            on_exit=[TimerAction(period=20.0, actions=[rviz_node])])))
     return actions
 
 
 ARGS = {
     "moveit": LaunchConfiguration("moveit"),
     "gui": LaunchConfiguration("gui"),
+    "rviz": LaunchConfiguration("rviz"),
     "aruco_dict": LaunchConfiguration("aruco_dict"),
     "aruco_id": LaunchConfiguration("aruco_id"),
     "aruco_size": LaunchConfiguration("aruco_size"),
@@ -288,6 +307,8 @@ def generate_launch_description():
                               description="是否启动 MoveIt（/target_pose 话题）"),
         DeclareLaunchArgument("gui", default_value="true",
                               description="是否启动 Gazebo 界面"),
+        DeclareLaunchArgument("rviz", default_value="true",
+                              description="是否启动 RViz"),
         DeclareLaunchArgument("aruco_dict", default_value="DICT_6X6_250",
                               description="ArUco 字典名"),
         DeclareLaunchArgument("aruco_id", default_value="0", description="ArUco id"),

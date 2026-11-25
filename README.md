@@ -9,7 +9,7 @@ arm_sim/
 └── src/agx_sim/               # 仿真：1 个 launch + 配置文件 + 1 个 python 节点
     ├── launch/sim.launch.py   # 唯一入口（按参数生成 world）
     ├── scripts/target_pose_bridge.py
-    └── config/                # urdf/xacro、srdf、controller、MoveIt 配置
+    └── config/                # urdf/xacro、srdf、controller、MoveIt、rviz 配置
 ```
 
 ## 1. 依赖
@@ -22,7 +22,8 @@ sudo apt install -y \
   ros-humble-gazebo-ros ros-humble-gazebo-plugins ros-humble-gazebo-ros2-control \
   ros-humble-controller-manager ros-humble-joint-state-broadcaster \
   ros-humble-joint-trajectory-controller ros-humble-robot-state-publisher \
-  ros-humble-xacro ros-humble-cv-bridge python3-opencv
+  ros-humble-xacro ros-humble-cv-bridge python3-opencv \
+  ros-humble-rviz2 ros-humble-rviz-default-plugins
 
 # 可选：只有 moveit:=true 时才需要
 sudo apt install -y ros-humble-moveit
@@ -44,7 +45,9 @@ colcon build
 source install/setup.bash
 
 ros2 launch agx_sim sim.launch.py            # 默认：Gazebo 界面 + MoveIt
-ros2 launch agx_sim sim.launch.py moveit:=false   # 只要关节接口
+ros2 launch agx_sim sim.launch.py moveit:=false   # 只要关节接口（RViz 自动换成基础配置）
+ros2 launch agx_sim sim.launch.py rviz:=false     # 不要 RViz
+ros2 launch agx_sim sim.launch.py gui:=false      # 不要 Gazebo 界面（无显示器/远程）
 ```
 
 ## 3. launch 参数
@@ -53,6 +56,7 @@ ros2 launch agx_sim sim.launch.py moveit:=false   # 只要关节接口
 | --- | --- | --- |
 | `moveit` | `true` | 是否启动 MoveIt（`false` 时不加载 `moveit_configs_utils`，没装 MoveIt 也能跑） |
 | `gui` | `true` | 是否启动 Gazebo 界面（gzclient） |
+| `rviz` | `true` | 是否启动 RViz；`moveit` 决定用哪套配置（见下） |
 | `aruco_dict` | `DICT_6X6_250` | ArUco 字典名（`cv2.aruco` 里的名字，如 `DICT_4X4_50`） |
 | `aruco_id` | `0` | 码 id |
 | `aruco_size` | `0.16` | 码边长（m） |
@@ -86,7 +90,16 @@ ros2 launch agx_sim sim.launch.py aruco_dict:=DICT_4X4_50 aruco_id:=3 aruco_size
          FollowJointTrajectory 控制器
 7. target_pose_bridge（agx_sim/target_pose_bridge） # moveit:=true
       —— /target_pose -> /move_action -> 控制器
+8. rviz2                                        # rviz:=true
+      —— 等控制器拉起后再延迟 20 s 启动，确保相机话题已存在，否则图像显示不会订阅
 ```
+
+RViz 两套配置，按 `moveit` 自动选：
+
+| 文件 | 何时使用 | 内容 |
+| --- | --- | --- |
+| `config/rviz_sim.rviz` | `moveit:=false` | Grid、RobotModel、TF、彩色图、深度图 |
+| `config/rviz_moveit.rviz` | `moveit:=true` | 上面这些 + `MotionPlanning` 面板（规划/执行/场景） |
 
 机器人本体（`config/agx_arm.urdf.xacro`）= piper_x 臂 + 电动夹爪 + 夹爪上的 RealSense D435
 （`config/d435_mount.urdf.xacro`，安装尺寸照抄 AgileX 官方

@@ -21,6 +21,8 @@
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>python3-opencv</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+  <exec_depend>rviz_default_plugins</exec_depend>
 
   <!-- MoveIt（moveit:=true 时才用到） -->
   <exec_depend>moveit_ros_move_group</exec_depend>
