@@ -85,12 +85,14 @@ ros2 launch agx_sim sim.launch.py aruco_dict:=DICT_4X4_50 aruco_id:=3 aruco_size
 5. controller_manager/spawner x3
       joint_state_broadcaster -> arm_controller -> gripper_controller
       （控制器由 gazebo_ros2_control 加载 config/ros2_controllers.yaml）
-6. move_group（moveit_ros_move_group）              # moveit:=true
+6. tcp_state_publisher（agx_sim/tcp_state_publisher）
+      —— 查 TF 算出夹爪两指指尖中点，发给 /arm_tcp_state（50 Hz）
+7. move_group（moveit_ros_move_group）              # moveit:=true
       —— 轨迹经 moveit_simple_controller_manager 发给上面两个
          FollowJointTrajectory 控制器
-7. target_pose_bridge（agx_sim/target_pose_bridge） # moveit:=true
+8. target_pose_bridge（agx_sim/target_pose_bridge） # moveit:=true
       —— /target_pose -> /move_action -> 控制器
-8. rviz2                                        # rviz:=true
+9. rviz2                                        # rviz:=true
       —— 等控制器拉起后再延迟 20 s 启动，确保相机话题已存在，否则图像显示不会订阅
 ```
 
@@ -110,6 +112,7 @@ RViz 两套配置，按 `moveit` 自动选：
 | 话题 | 消息类型 | 方向 | 说明 |
 | --- | --- | --- | --- |
 | `/joint_states` | `sensor_msgs/msg/JointState` | 输出 | 关节位置/速度（仿真反馈） |
+| `/arm_tcp_state` | `geometry_msgs/msg/PoseStamped` | 输出 | 夹爪 TCP（两指指尖中点）在 `base_link` 下的位姿 |
 | `/arm_controller/joint_trajectory` | `trajectory_msgs/msg/JointTrajectory` | 输入 | 直接给 6 个臂关节发轨迹 |
 | `/gripper_controller/joint_trajectory` | `trajectory_msgs/msg/JointTrajectory` | 输入 | 夹爪开合（`gripper_joint1/2`，±0.05 rad） |
 | `/target_pose` | `geometry_msgs/msg/PoseStamped` | 输入 | 末端目标位姿，MoveIt 后台规划并执行（`moveit:=true`） |
@@ -150,6 +153,8 @@ ros2 topic echo /target_pose_status
 
 ## 6. 说明
 
+- `/arm_tcp_state` 的 TCP 取在 `gripper_base` 沿 +Z 0.1358 m 处，正好是两个指尖 frame 的中点，
+  姿态沿用 `gripper_base`；换夹爪或想改抓取点时用节点参数 `tcp_z` / `tcp_parent` 调。
 - 初始关节角：`joint2=1.2, joint3=-1.2`，其余 0，夹爪 `±0.02`。
 - ArUco 码由白底板 + 黑格子拼成（不用贴图），每次 launch 按参数写入 `/tmp/agx_sim/sim.world`；
   白底板比码大 6 cm 以留出 quiet zone，且关闭投影避免自阴影影响检测。

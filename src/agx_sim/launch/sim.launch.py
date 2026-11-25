@@ -14,6 +14,7 @@
 
 对外接口：
     /joint_states                        关节状态（仿真实时反馈）
+    /arm_tcp_state                       夹爪 TCP 位姿（PoseStamped，基坐标系）
     /arm_controller/joint_trajectory     关节轨迹（JointTrajectory）-> 臂
     /gripper_controller/joint_trajectory 关节轨迹 -> 夹爪
     /target_pose                         目标位姿（PoseStamped）-> MoveIt 规划并执行（moveit:=true）
@@ -248,6 +249,10 @@ def _launch(context, *args, **kwargs):
     actions.append(RegisterEventHandler(OnProcessExit(
         target_action=spawn_robot, on_exit=spawners)))
     last_spawner = spawners[-1]
+
+    # 夹爪 TCP 位姿反馈（纯反馈，与 moveit 无关，始终启动）
+    actions.append(Node(package="agx_sim", executable="tcp_state_publisher",
+                        output="log", parameters=[{"use_sim_time": True}]))
 
     # MoveIt：move_group + /target_pose 桥接节点（moveit:=false 时完全不加载）
     moveit_params = None

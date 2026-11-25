@@ -11,4 +11,9 @@ install(PROGRAMS scripts/target_pose_bridge.py
   DESTINATION lib/${PROJECT_NAME}
   RENAME target_pose_bridge)
 
+# 夹爪 TCP 位姿反馈节点
+install(PROGRAMS scripts/tcp_state_publisher.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME tcp_state_publisher)
+
 ament_package()
