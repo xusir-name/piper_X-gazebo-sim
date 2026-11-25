@@ -25,7 +25,8 @@ sudo apt install -y \
   ros-humble-xacro ros-humble-cv-bridge python3-opencv \
   ros-humble-rviz2 ros-humble-rviz-default-plugins
 
-# 可选：只有 moveit:=true 时才需要
+# 可选：只有 moveit:=true 时才需要（提供 moveit_configs_utils 等）
+# 没装的话用 moveit:=false 启动，否则 launch 会提示缺 moveit_configs_utils
 sudo apt install -y ros-humble-moveit
 ```
 

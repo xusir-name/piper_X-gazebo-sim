@@ -313,7 +313,15 @@ def _launch(context, *args, **kwargs):
     # MoveIt：move_group + /target_pose 桥接节点（moveit:=false 时完全不加载）
     moveit_params = None
     if _flag(ctx["moveit"]):
-        from moveit_configs_utils import MoveItConfigsBuilder
+        try:
+            from moveit_configs_utils import MoveItConfigsBuilder
+        except ImportError as exc:
+            raise RuntimeError(
+                "moveit:=true 需要 MoveIt，但找不到 moveit_configs_utils。\n"
+                "  安装：sudo apt install ros-humble-moveit\n"
+                "  或关掉 MoveIt：ros2 launch agx_sim sim.launch.py moveit:=false\n"
+                f"  （原始错误：{exc}）"
+            ) from exc
 
         cfg = (MoveItConfigsBuilder("agx_arm", package_name="agx_sim")
                .robot_description(file_path="config/agx_arm.urdf.xacro")
