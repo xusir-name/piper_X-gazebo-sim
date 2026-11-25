@@ -11,6 +11,7 @@
     aruco_dx/dy   0.0     码相对凸台中心的偏移（m）
     table_x/y/z   0.45/0.0/0.15  凸台中心坐标（m，world 系 = base_link 系）
     table_sx/sy/sz 0.6/0.6/0.3   凸台尺寸（m）
+    blocks        4      台面上放几个可以被夹爪抓起来的小方块（0=不放）
 
 对外接口：
     /joint_states                        关节状态（仿真实时反馈）
@@ -102,6 +103,56 @@ def _flag(value):
     return str(value).strip().lower() in ("1", "true", "yes", "on")
 
 
+def _blocks_sdf(tx, ty, top, hx, hy, count):
+    """台面上放几个可抓取的小方块（非固定，带摩擦和接触刚度）。"""
+    if count <= 0:
+        return ""
+    # (相对台面中心的偏移比例, 边长, 质量, 颜色)
+    layout = [
+        (-0.35, -0.35, 0.035, 0.05, "0.85 0.25 0.2 1"),
+        (-0.35, 0.35, 0.030, 0.04, "0.2 0.55 0.85 1"),
+        (0.05, -0.62, 0.040, 0.06, "0.95 0.75 0.15 1"),
+        (0.05, 0.62, 0.025, 0.03, "0.3 0.8 0.35 1"),
+        (-0.70, 0.0, 0.045, 0.08, "0.6 0.4 0.85 1"),
+        (-0.05, 0.0, 0.030, 0.04, "0.9 0.5 0.2 1"),
+    ]
+    out = []
+    for i in range(min(count, len(layout))):
+        fx, fy, a, m, color = layout[i]
+        x = tx + fx * hx
+        y = ty + fy * hy
+        z = top + a / 2.0 + 0.001
+        inertia = m * a * a / 6.0
+        out.append(f'''
+    <model name="block_{i}">
+      <pose>{x:.4f} {y:.4f} {z:.4f} 0 0 0</pose>
+      <link name="link">
+        <inertial>
+          <mass>{m}</mass>
+          <inertia ixx="{inertia:.6g}" ixy="0" ixz="0"
+                   iyy="{inertia:.6g}" iyz="0" izz="{inertia:.6g}"/>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>{a} {a} {a}</size></box></geometry>
+          <surface>
+            <friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction>
+            <contact><ode><kp>1e6</kp><kd>10</kd>
+              <max_vel>0.01</max_vel><min_depth>0.001</min_depth></ode></contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>{a} {a} {a}</size></box></geometry>
+          <material>
+            <ambient>{color}</ambient>
+            <diffuse>{color}</diffuse>
+            <specular>0.1 0.1 0.1 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>''')
+    return "".join(out)
+
+
 # ------------------------------------------------------------------ world
 def _world_sdf(ctx):
     """按参数生成 world：地面 + 凸台 + ArUco 码。"""
@@ -137,6 +188,10 @@ def _world_sdf(ctx):
 
     marker = _aruco_sdf("aruco_marker", ctx["aruco_dict"], int(ctx["aruco_id"]),
                         size, pose)
+    # 台面上可抓取的小方块（留出边距，保证落在台面上）
+    hx = max(sx / 2.0 - 0.05, 0.02)
+    hy = max(sy / 2.0 - 0.05, 0.02)
+    blocks = _blocks_sdf(tx, ty, top, hx, hy, int(ctx["blocks"]))
 
     return f'''<?xml version="1.0"?>
 <sdf version="1.6">
@@ -177,6 +232,7 @@ def _world_sdf(ctx):
 
     {marker}
     {extra}
+    {blocks}
 
     <scene><ambient>0.5 0.5 0.5 1</ambient><background>0.7 0.7 0.7 1</background>
     </scene>
@@ -303,6 +359,7 @@ ARGS = {
     "table_sx": LaunchConfiguration("table_sx"),
     "table_sy": LaunchConfiguration("table_sy"),
     "table_sz": LaunchConfiguration("table_sz"),
+    "blocks": LaunchConfiguration("blocks"),
 }
 
 
@@ -337,5 +394,7 @@ def generate_launch_description():
                               description="凸台宽（m）"),
         DeclareLaunchArgument("table_sz", default_value="0.3",
                               description="凸台高（m）"),
+        DeclareLaunchArgument("blocks", default_value="4",
+                              description="台面上小方块的个数（0=不放）"),
     ]
     return LaunchDescription(declared + [OpaqueFunction(function=_launch)])

@@ -16,8 +16,9 @@ arm_controller:
     command_interfaces: [position]
     state_interfaces: [position, velocity]
     constraints:
-      stopped_velocity_tolerance: 0.01
-      goal_time: 2.0
+      # 抓取时末端与被抓物块接触会让动作略慢，容差放宽一点
+      stopped_velocity_tolerance: 0.05
+      goal_time: 5.0
 
 gripper_controller:
   ros__parameters:
@@ -25,5 +26,5 @@ gripper_controller:
     command_interfaces: [position]
     state_interfaces: [position, velocity]
     constraints:
-      stopped_velocity_tolerance: 0.01
-      goal_time: 2.0
+      stopped_velocity_tolerance: 0.05
+      goal_time: 5.0

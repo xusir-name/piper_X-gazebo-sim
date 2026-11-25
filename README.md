@@ -64,6 +64,7 @@ ros2 launch agx_sim sim.launch.py gui:=false      # 不要 Gazebo 界面（无�
 | `aruco_dx` / `aruco_dy` | `0.0` | 码相对凸台中心的偏移（m） |
 | `table_x` / `table_y` / `table_z` | `0.45` / `0.0` / `0.15` | 凸台中心坐标（m，原点在机械臂底座） |
 | `table_sx` / `table_sy` / `table_sz` | `0.6` / `0.6` / `0.3` | 凸台尺寸（m），台面高度 = `table_z + table_sz/2` |
+| `blocks` | `4` | 台面上放几个可抓取的小方块（边长 2.5~4.5 cm，非固定、带摩擦），`0`=不放 |
 
 ```bash
 # 4x4 码、平放、换个凸台
@@ -153,6 +154,8 @@ ros2 topic echo /target_pose_status
 
 ## 6. 说明
 
+- 台面上的小方块是普通动态刚体（`static=false`，质量 0.03~0.06 kg，`mu=1.0`，
+  接触刚度 `kp=1e6`），夹爪闭合就能夹住拿走；它们的位置按凸台尺寸等比计算，跟着 `table_sx/sy` 走。
 - `/arm_tcp_state` 的 TCP 取在 `gripper_base` 沿 +Z 0.1358 m 处，正好是两个指尖 frame 的中点，
   姿态沿用 `gripper_base`；换夹爪或想改抓取点时用节点参数 `tcp_z` / `tcp_parent` 调。
 - 初始关节角：`joint2=1.2, joint3=-1.2`，其余 0，夹爪 `±0.02`。
